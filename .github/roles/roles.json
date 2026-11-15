@@ -13,10 +13,10 @@
       "date": null
     },
     "ML": {
-      "owner": null,
-      "task": null,
-      "commit": null,
-      "date": null
+      "owner": "aylanall",
+      "task": "SCRUM-25",
+      "commit": "0fed6d4",
+      "date": "2026-11-15"
     },
     "IoT": {
       "owner": null,
@@ -31,5 +31,11 @@
       "date": null
     }
   },
-  "done": {}
+  "done": {
+    "SCRUM-25": {
+      "by": "aylanall",
+      "commit": "0fed6d4",
+      "date": "2026-11-15"
+    }
+  }
 }

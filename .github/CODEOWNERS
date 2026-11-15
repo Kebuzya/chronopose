@@ -7,9 +7,9 @@
 /src/fusion/ @chronopose
 # /src/vision/ — роль CV свободна
 # /src/tracking/ — роль CV свободна
-# /src/models/ — роль ML свободна
-# /eval/ — роль ML свободна
-# /scripts/eval_gate.py — роль ML свободна
+/src/models/ @aylanall
+/eval/ @aylanall
+/scripts/eval_gate.py @aylanall
 # /src/iot/ — роль IoT свободна
 # /firmware/ — роль IoT свободна
 # /src/api/ — роль WEB свободна
