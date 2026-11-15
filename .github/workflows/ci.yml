@@ -19,6 +19,8 @@ jobs:
         run: ruff check .
       - name: Тесты, включая сквозной прогон «падение → оповещение» без железа
         run: pytest -q
+      - name: Восстановление оповещений в панели (Node.js из образа ubuntu-latest)
+        run: node --test tests/test_panel.mjs
       - name: Гейт качества (полнота, ложные тревоги, задержка ≤ 4 с)
         run: python scripts/eval_gate.py
 

@@ -105,6 +105,8 @@ const STATE = { NORMAL: "норма", SUSPECTED: "подозрение", ALERT_S
 const fmt = (t) => new Date(t * 1000).toLocaleTimeString("ru-RU");
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 let camId = "cam_01", sound = false, audio = null, seen = new Set();
+const shownAlerts = new Set();
+let latestAlertTime = -Infinity;
 
 function chip(id, on, label) { const c = $(id); c.className = "chip " + (on === null ? "" : on ? "on" : "off"); if (label) c.lastElementChild.textContent = label; }
 
@@ -141,15 +143,18 @@ async function loadEvents() {
   rows.forEach((e) => seen.add(e.id));
 }
 
-function showAlert(a) {
+function showAlert(a, restored = false) {
+  if (shownAlerts.has(a.event_id) || a.t < latestAlertTime) return;
+  shownAlerts.add(a.event_id);
+  latestAlertTime = a.t;
   const box = $("alert");
-  box.className = "active pulse";
-  $("alert-k").textContent = `Тревога · ${fmt(a.t)}`;
+  box.className = restored ? "active" : "active pulse";
+  $("alert-k").textContent = `${restored ? "Последняя тревога" : "Тревога"} · ${fmt(a.t)}`;
   $("alert-txt").textContent = a.text;
   $("alert-meta").innerHTML = [`${esc(a.person)}`, `${esc(a.camera_id)} · зона ${esc(a.zone)}`, `видео ${Math.round(a.confidence * 100)} %`, `датчик: ${IMU[a.imu_confirmed]}`]
     .map((t) => `<span class="tag">${t}</span>`).join("");
   $("ack").hidden = false;
-  if (sound) beep();
+  if (sound && !restored) beep();
   loadEvents();
 }
 $("ack").onclick = () => { $("alert").className = ""; $("alert-k").textContent = "Тревог нет"; $("alert-txt").textContent = "Оповещение принято. Система продолжает наблюдение."; $("alert-meta").innerHTML = ""; $("ack").hidden = true; };
@@ -163,7 +168,11 @@ $("sound").onclick = () => { sound = !sound; $("sound").textContent = `Звук:
 function connect() {
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/events");
   ws.onopen = () => chip("c-ws", true, "Связь");
-  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.type === "alert") showAlert(d.alert); };
+  ws.onmessage = (m) => {
+    const d = JSON.parse(m.data);
+    if (d.type === "hello" && d.recent.length) showAlert(d.recent[d.recent.length - 1], true);
+    if (d.type === "alert") showAlert(d.alert);
+  };
   ws.onclose = () => { chip("c-ws", false, "Связь · переподключение"); setTimeout(connect, 1500); };
 }
 $("stream").onload = () => { $("ph").hidden = true; };
