@@ -12,5 +12,5 @@
 /scripts/eval_gate.py @aylanall
 # /src/iot/ — роль IoT свободна
 # /firmware/ — роль IoT свободна
-# /src/api/ — роль WEB свободна
-# /web/ — роль WEB свободна
+/src/api/ @Kebuzya
+/web/ @Kebuzya

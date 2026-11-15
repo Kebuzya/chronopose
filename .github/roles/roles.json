@@ -25,16 +25,21 @@
       "date": null
     },
     "WEB": {
-      "owner": null,
-      "task": null,
-      "commit": null,
-      "date": null
+      "owner": "Kebuzya",
+      "task": "SCRUM-77",
+      "commit": "035259f",
+      "date": "2026-11-15"
     }
   },
   "done": {
     "SCRUM-25": {
       "by": "aylanall",
       "commit": "0fed6d4",
+      "date": "2026-11-15"
+    },
+    "SCRUM-77": {
+      "by": "Kebuzya",
+      "commit": "035259f",
       "date": "2026-11-15"
     }
   }
