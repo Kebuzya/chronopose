@@ -139,13 +139,29 @@ def create_app(ctx: Context) -> FastAPI:
         q: asyncio.Queue = asyncio.Queue()
         ctx.hub.loop = asyncio.get_running_loop()
         ctx.hub.queues.add(q)
-        try:
-            await ws.send_json({"type": "hello", "recent": [a.model_dump() for a in ctx.pipeline.alerts[-10:]]})
+        tasks = []
+
+        async def send_alerts():
             while True:
                 await ws.send_json(await q.get())
+
+        async def wait_disconnect():
+            while True:
+                if (await ws.receive())["type"] == "websocket.disconnect":
+                    return
+
+        try:
+            await ws.send_json({"type": "hello", "recent": [a.model_dump() for a in ctx.pipeline.alerts[-10:]]})
+            tasks = [asyncio.create_task(send_alerts()), asyncio.create_task(wait_disconnect())]
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
         except WebSocketDisconnect:
             pass
         finally:
             ctx.hub.queues.discard(q)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     return app

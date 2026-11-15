@@ -1,4 +1,7 @@
 """API и WebSocket поверх конвейера: событие из синтетического прогона видно в журнале и прилетает в WS."""
+import asyncio
+import json
+
 from fastapi.testclient import TestClient
 
 from src.api.app import Context, create_app
@@ -50,3 +53,39 @@ def test_websocket_receives_live_alert():
             pipe.on_observation(obs)
         msg = ws.receive_json()
         assert msg["type"] == "alert" and msg["alert"]["person"] == "P-001"
+
+
+def test_websocket_reconnect_restores_alert_missed_while_offline():
+    _, pipe, ctx = make()
+    with TestClient(create_app(ctx)) as c:
+        with c.websocket_connect("/ws/events") as ws:
+            assert ws.receive_json() == {"type": "hello", "recent": []}
+        for obs in demo_scene(t0=T0).frames(12):
+            pipe.on_observation(obs)
+        for _ in range(2):
+            with c.websocket_connect("/ws/events") as ws:
+                hello = ws.receive_json()
+                assert hello["type"] == "hello"
+                assert [a["event_id"] for a in hello["recent"]] == [pipe.alerts[0].event_id]
+
+
+def test_websocket_disconnect_releases_subscription_without_another_alert():
+    async def run():
+        _, _, ctx = make()
+        incoming, outgoing = asyncio.Queue(), asyncio.Queue()
+        await incoming.put({"type": "websocket.connect"})
+        scope = {"type": "websocket", "path": "/ws/events", "headers": [], "query_string": b"", "scheme": "ws"}
+        task = asyncio.create_task(create_app(ctx)(scope, incoming.get, outgoing.put))
+        try:
+            assert (await asyncio.wait_for(outgoing.get(), 1))["type"] == "websocket.accept"
+            hello = await asyncio.wait_for(outgoing.get(), 1)
+            assert json.loads(hello["text"])["type"] == "hello"
+            assert len(ctx.hub.queues) == 1
+            await incoming.put({"type": "websocket.disconnect", "code": 1000})
+            await asyncio.wait_for(task, 1)
+            assert not ctx.hub.queues
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(run())
