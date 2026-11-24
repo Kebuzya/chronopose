@@ -1,5 +1,5 @@
 # Окружение разработки и демо (SCRUM-7): Mosquitto + PostgreSQL + сервер.
-#   cp .env.example .env  &&  sh infra/mosquitto/make_passwd.sh  &&  docker compose up --build
+# Подготовка .env и паролей: docs/run.md, раздел «Всё в Docker».
 # Пульт: http://localhost:8000. Телефоны подключаются к MQTT по IP ноутбука, порт 1883.
 services:
   mqtt:
@@ -32,7 +32,7 @@ services:
       DATABASE_URL: postgresql://chronopose:${POSTGRES_PASSWORD}@db:5432/chronopose
       MQTT_USER: server
       MQTT_PASSWORD: ${MQTT_PASSWORD:?задайте в .env}
-      APP_ARGS: ${APP_ARGS:---synthetic --mqtt mqtt}
+      APP_ARGS: ${APP_ARGS:---synthetic --mqtt mqtt --simulate-imu}
     depends_on:
       db: { condition: service_healthy }
       mqtt: { condition: service_started }
