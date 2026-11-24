@@ -30,7 +30,7 @@ python -m src.app --synthetic --port 8000
 | Шаг | Что сделать |
 | --- | --- |
 | Сеть | Все устройства в одной Wi-Fi сети (можно точка доступа с телефона). Узнайте IP ноутбука. |
-| Брокер | `cp .env.example .env`, задайте пароли, `sh infra/mosquitto/make_passwd.sh`, затем `docker compose up -d mqtt db` |
+| Брокер | Подготовьте `.env` и файл паролей по разделу «Всё в Docker», затем `docker compose up -d mqtt db` |
 | Телефон-камера | Приложение IP Webcam → «Запустить» → адрес вида `http://192.168.1.21:8080/video` |
 | Телефон-IMU | phyphox → эксперимент с акселерометром → «Разрешить удалённый доступ». На ноутбуке: `MQTT_USER=phone MQTT_PASSWORD=… python -m src.iot.phone_imu_bridge --phone <ip телефона> --broker localhost` |
 | ESP32 | В `firmware/esp32_alarm/esp32_alarm.ino` впишите Wi-Fi, IP ноутбука и пароль `esp32`, прошейте из Arduino IDE |
@@ -48,8 +48,22 @@ python -m src.app --synthetic --port 8000
 
 ## 3. Всё в Docker
 
+Перед первым запуском скопируйте `.env.example` в `.env`, задайте пароли и создайте файл паролей брокера.
+Если в существующем `.env` остались старые аргументы запуска синтетики, обновите строку до
+`APP_ARGS='--synthetic --mqtt mqtt --simulate-imu'`.
+Из корня проекта в Bash выполните:
+
 ```bash
-docker compose up --build            # синтетика через настоящий Mosquitto и PostgreSQL
+(set -a; . ./.env; sh infra/mosquitto/make_passwd.sh)
+docker compose up --build            # синтетическая камера и IMU через Mosquitto и PostgreSQL
+```
+
+Откройте пульт на http://localhost:8000. В `/api/sensors` появится `imu_001`, а после падения в `/api/events`
+появится событие с `imu_confirmed: true`.
+
+Для запуска с телефоном-камерой:
+
+```bash
 VISION=1 APP_ARGS="--camera http://192.168.1.21:8080/video --mqtt mqtt" docker compose up --build
 ```
 

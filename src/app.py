@@ -113,6 +113,7 @@ def main(argv=None) -> None:
     p.add_argument("--zone", default="A")
     p.add_argument("--synthetic", action="store_true", help="синтетическая камера и телефон, железо не нужно")
     p.add_argument("--mqtt", help="адрес Mosquitto; без него шина в памяти")
+    p.add_argument("--simulate-imu", action="store_true", help="с --synthetic публиковать синтетический IMU и в MQTT")
     p.add_argument("--device", default="imu_001", help="телефон-IMU, привязанный к камере")
     p.add_argument("--classifier", default="rules", choices=["rules", "forest"])
     p.add_argument("--model", default="yolo26n-pose.pt")
@@ -122,6 +123,8 @@ def main(argv=None) -> None:
     a = p.parse_args(argv)
     if not a.synthetic and not a.camera:
         p.error("нужен --camera или --synthetic")
+    if a.simulate_imu and not a.synthetic:
+        p.error("--simulate-imu требует --synthetic")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
     bus = MqttBus(a.mqtt, client_id="chronopose-server") if a.mqtt else InMemoryBus()
@@ -132,7 +135,7 @@ def main(argv=None) -> None:
     ctx = Context(pipe, store, imu, bus)
     cam = CameraRunner(a.camera_id, pipe, a.camera, synthetic=a.synthetic, model=a.model).start()
     ctx.cameras[cam.id] = cam
-    if a.synthetic and not a.mqtt:
+    if a.synthetic and (not a.mqtt or a.simulate_imu):
         threading.Thread(target=_simulate_phone, args=(bus, a.device, cam), daemon=True).start()
 
     import uvicorn
@@ -141,7 +144,7 @@ def main(argv=None) -> None:
 
 
 def _simulate_phone(bus, device: str, cam: CameraRunner) -> None:
-    """Телефон-IMU в памяти, синхронно с циклами синтетической сцены: удар через 0,3 с после начала падения."""
+    """Синхронизирует телеметрию IMU с каждым циклом синтетической камеры."""
     from src.iot.simulator import samples
 
     while True:
