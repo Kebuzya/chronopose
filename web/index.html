@@ -175,7 +175,12 @@ function connect() {
   };
   ws.onclose = () => { chip("c-ws", false, "Связь · переподключение"); setTimeout(connect, 1500); };
 }
-$("stream").onload = () => { $("ph").hidden = true; };
+const stream = $("stream");
+stream.onload = () => { $("ph").hidden = true; };
+stream.onerror = () => {
+  stream.removeAttribute("src");
+  $("ph").hidden = false;
+};
 connect(); poll(); loadEvents(); setInterval(poll, 700); setInterval(loadEvents, 5000);
 </script>
 </body>
