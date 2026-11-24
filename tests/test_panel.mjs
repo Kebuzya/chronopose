@@ -7,12 +7,12 @@ import vm from "node:vm";
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
-function panel() {
-  const elements = new Map(), sockets = [], retries = [];
+function panel(cameras = []) {
+  const elements = new Map(), intervals = new Map(), sockets = [], retries = [];
   let beeps = 0;
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, { textContent: "", className: "", hidden: true,
-      innerHTML: "", src: "", lastElementChild: { textContent: "" } });
+      innerHTML: "", src: "", removeAttribute(name) { this[name] = ""; }, lastElementChild: { textContent: "" } });
     return elements.get(id);
   };
   const gain = { gain: { value: 0 }, connect() {} };
@@ -25,11 +25,13 @@ function panel() {
       createGain() { return gain; }
       createOscillator() { return { frequency: {}, connect: () => gain, start: () => beeps++, stop() {} }; }
     },
-    fetch: async (url) => ({ json: async () => url === "/api/sensors" ? { imu: [], actuators: [] } : [] }),
-    setInterval() {},
+    fetch: async (url) => ({ json: async () => ({
+      "/api/cameras": cameras, "/api/sensors": { imu: [], actuators: [] },
+    })[url] ?? [] }),
+    setInterval(fn, delay) { intervals.set(delay, fn); },
     setTimeout(fn, delay) { retries.push({ fn, delay }); },
   });
-  return { element, sockets, retries, beeps: () => beeps,
+  return { element, sockets, retries, beeps: () => beeps, poll: () => intervals.get(700)(),
     receive(data) { sockets.at(-1).onmessage({ data: JSON.stringify(data) }); },
     reconnect() { sockets.at(-1).onclose(); retries.at(-1).fn(); sockets.at(-1).onopen(); } };
 }
@@ -86,4 +88,18 @@ test("пропущенная тревога восстанавливается, 
   p.receive({ type: "alert", alert: alert("delayed", 105) });
   assert.equal(p.element("alert-txt").textContent, "Падение missed");
   assert.equal(p.element("alert").className, "active");
+});
+
+test("видеопоток запрашивается заново после ошибки камеры", async () => {
+  const p = panel([{ id: "cam_01", connected: true, source: "synthetic", fps: 15 }]);
+  const stream = p.element("stream"), placeholder = p.element("ph");
+  await p.poll();
+  assert.equal(stream.src, "/api/cameras/cam_01/stream");
+  stream.onerror();
+  assert.equal(stream.src, "");
+  assert.equal(placeholder.hidden, false);
+  await p.poll();
+  assert.equal(stream.src, "/api/cameras/cam_01/stream");
+  stream.onload();
+  assert.equal(placeholder.hidden, true);
 });
